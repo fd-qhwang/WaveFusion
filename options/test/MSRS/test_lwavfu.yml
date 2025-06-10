@@ -1,0 +1,65 @@
+# General settings
+name: Test_0609_LWAVFU_dim64_B4_128_Adam_4e-4_tanh_None_DMT_depth2_Learnable_10k
+model_type: WAVFUModel
+num_gpu: 1  # set num_gpu: 0 for CPU mode
+manual_seed: 42
+
+# Dataset and data loader settings
+datasets:
+  test_1:
+    name: TNO_test
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/TNO/ir
+    dataroot_source2: datasets/test/TNO/vi
+  test_2:
+    name: RoadScene_test
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/RoadScene/ir
+    dataroot_source2: datasets/test/RoadScene/vi
+  test_3:
+    name: MSRS_test
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/MSRS/ir
+    dataroot_source2: datasets/test/MSRS/vi
+
+
+# network structures
+network_g:
+  type: LWAVFUNet
+  inp_channels: 1
+  dim: 64
+  wavestlayer_configs: {
+        'dim': 64,  # 维度，与通道数相等
+        'input_resolution': 128,
+        'depths': [2, 4, 4, 2],
+        'num_heads_list': [4, 8, 8, 4],  # 自注意力模块的头数
+        'window_size': 16,
+        'drop_path': 0.1,
+    }
+  decoder_configs: {
+        'dim': 64,  # 维度，与通道数相等
+        'input_resolution': 128,
+        'depths': [2, 2],
+        'num_heads_list': [4, 4],  # 自注意力模块的头数
+        'window_size': 16,
+        'drop_path': 0.1,
+    }
+
+# path
+path:
+  pretrain_network_g: /checkpoints/net_g_fusion.pth
+  strict_load_g: true
+  resume_state: ~
+
+# validation settings
+val:
+  save_img: True
+  suffix: ~  # add suffix to saved images, if None, use exp name
+  pbar: true
+

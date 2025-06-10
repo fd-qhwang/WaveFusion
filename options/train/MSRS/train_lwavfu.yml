@@ -1,0 +1,179 @@
+# General settings
+name: MSEMask1_0609_Train1_WAVFU_dim64_B4_128_AdamW_2e-4_tanh_None_DMT_depth4_Learnable_HaarInit
+model_type: WAVFUModel
+num_gpu: 1  # set num_gpu: 0 for CPU mode
+manual_seed: 42
+
+# Dataset and data loader settings
+datasets:
+  train:
+    name: MSRS
+    type: WAVFUDataset
+    is_train: True
+    is_RGB: False
+    dataroot_dir: datasets/MSRS/train
+    data_name: MSRS_MSVFU
+    dataroot_source1: datasets/MSRS/train/ir
+    dataroot_source2: datasets/MSRS/train/vi
+    mask_path: datasets/MSRS/train/max_mask
+
+    img_size: 128
+    stride: 64
+
+    num_worker_per_gpu: 12
+    batch_size_per_gpu: 4
+    dataset_enlarge_ratio: 1
+    pin_memory: true
+    prefetch_mode: cuda
+
+  val_1:
+    name: RoadScene
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/RoadScene/ir
+    dataroot_source2: datasets/test/RoadScene/vi
+  val_2:
+    name: TNO
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/TNO/vi
+    dataroot_source2: datasets/test/TNO/ir
+  val_3:
+    name: HBUT_UAV
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/HBUT_UAV/ir
+    dataroot_source2: datasets/test/HBUT_UAV/vi
+  val_4:
+    name: MSRS
+    type: WAVFUDataset
+    is_train: False
+    is_RGB: True
+    dataroot_source1: datasets/test/MSRS/ir
+    dataroot_source2: datasets/test/MSRS/vi
+
+
+# network structures
+network_g:
+  type: LWAVFUNet
+  inp_channels: 1
+  dim: 64
+  wavestlayer_configs: {
+        'dim': 64,  # 维度，与通道数相等
+        'input_resolution': 128,
+        'depths': [2, 4, 4, 2],
+        'num_heads_list': [4, 8, 8, 4],  # 自注意力模块的头数
+        'window_size': 16,
+        'drop_path': 0.1,
+    }
+  decoder_configs: {
+        'dim': 64,  # 维度，与通道数相等
+        'input_resolution': 128,
+        'depths': [2, 2],
+        'num_heads_list': [4, 4],  # 自注意力模块的头数
+        'window_size': 16,
+        'drop_path': 0.1,
+    }
+# Training settings
+train:
+  ema_decay: 0
+  clip_grad: False
+  # Optimizers
+  optim_g:
+    type: AdamW
+    lr: !!float 4e-4
+    #momentum: 0.9
+    weight_decay: !!float 1e-2
+    betas: [0.9, 0.99]
+
+  # Schedulers
+  # CosineAnnealingRestartLR MultiStepLR
+  scheduler:
+    #type: MultiStepLR
+    #milestones: [100000, 200000, 300000, 400000]
+    #gamma: 0.5
+    type: CosineAnnealingRestartLR
+    periods: [100000, 100000, 100000, 200000]
+    restart_weights: [1, 0.5,1, 0.5]
+    eta_min: !!float 2e-6
+
+  phase1_iter: 0
+  total_iter: 500000
+  warmup_iter: 10000  # no warm up
+  # Losses
+  content_mask_opt:
+    type: MaskLoss
+    loss_weight: !!float 10.0
+    reduction: mean
+  edge_opt:
+    type: SobelLoss1
+    loss_weight: !!float 10.0
+    reduction: mean
+  percep_vis_opt:
+    type: PerceptualLoss
+    layer_weights:
+      'conv5_4': 1  # before relu
+    vgg_type: vgg19
+    use_input_norm: True
+    range_norm: false
+    perceptual_weight: !!float 2e-2
+    style_weight: 0
+    criterion: l1
+  percep_ir_opt:
+    type: PerceptualLoss
+    layer_weights:
+      'conv5_4': 1  # before relu
+    vgg_type: vgg19
+    use_input_norm: True
+    range_norm: false
+    perceptual_weight: !!float 1e-2
+    style_weight: 0
+    criterion: l1
+  wavelet_opt:
+    use_loss: True
+
+# path
+path:
+  pretrain_network_g: ~
+  strict_load_g: true
+  resume_state: ~
+
+# validation settings
+val:
+  val_freq: !!float 5.0e3
+  val_start_iter: !!float 0
+  save_img: False
+  pbar: true
+
+
+  metrics:
+    entropy: # metric name, can be arbitrary
+      type: calculate_entropy
+    standard deviation:
+      type: calculate_sd
+    spatial frequency:
+      type: calculate_sf
+    ssim:
+      type: calculate_ssim
+    SCD:
+      type: calculate_scd
+    QABF:
+      type: calculate_qabf
+
+
+# logging settings
+logger:
+  print_freq: 200
+  save_checkpoint_freq: !!float 5e3
+  use_tb_logger: true
+  wandb:
+    project: ~
+    resume_id: ~
+
+# dist training settings
+dist_params:
+  backend: nccl
+  port: 29500
